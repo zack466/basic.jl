@@ -283,33 +283,3 @@ function parse_program(tokens)
     return entry, program, mapping
 end
 
-IP = nothing
-
-function setIP(x)
-    global IP = x;
-end
-
-function interpret(str)
-    tokens = tokenize(str)
-    @debug tokens
-    entry, program, mapping = parse_program(tokens)
-    global IP = entry # initial instruction pointer
-    program_idx = mapping[IP]
-    while program_idx <= length(program)
-        IP = nothing;
-        line, expr = program[program_idx]
-        @debug "Line: ", line, expr
-        eval(expr)
-        if IP == nothing # not a GOTO
-            program_idx += 1
-        else
-            program_idx = mapping[IP]
-        end
-    end
-end
-
-function run(str)
-    open(str) do f
-        interpret(read(f, String))
-    end
-end

@@ -1,4 +1,4 @@
-5 LET x = 9000000
+5 LET x = 9876543
 10 LET dx = 0.0001
 15 LET y = 1
 18 PRINT y
