@@ -7,12 +7,16 @@ regexes = [
     (r"^\+", :PLUS),
     (r"^-", :MINUS),
     (r"^!", :NOT),
+    (r"^<", :LT),
+    (r"^>", :GT),
     (r"^\*", :TIMES),
     (r"^/", :DIVIDE),
     (r"^==", :EQUALS),
+    (r"^!=", :NEQUALS),
     (r"^=", :EQUAL),
     (r"^\)", :RPAREN),
     (r"^\(", :LPAREN),
+    (r"^([0-9]+\.[0-9]*)", :FLOAT),
     (r"^([0-9]+)", :INT),
     (r"^(([\"'`])(?:[\s\S])*?(?:(?<!\\)\2))", :STRING),
     (r"^#t", :TRUE),
@@ -97,7 +101,7 @@ end
 #   | string
 #   | int
 #   | boolean
-#   | ( expr )
+#   | ( comparison )
 
 function parse_primary(tokens)
     tok = tokens[1]
@@ -108,12 +112,14 @@ function parse_primary(tokens)
         return String(tok.match[2:end-1]), tokens[2:end]
     elseif tok.token_type == :INT
         return parse(Int, tok.match), tokens[2:end]
+    elseif tok.token_type == :FLOAT
+        return parse(Float64, tok.match), tokens[2:end]
     elseif tok.token_type == :TRUE
         return true, tokens[2:end]
     elseif tok.token_type == :FALSE
         return false, tokens[2:end]
     elseif tok.token_type == :LPAREN
-        expr, tokens = parse_expr(tokens[2:end])
+        expr, tokens = parse_comparison(tokens[2:end])
         tok, tokens = expect(:RPAREN, tokens)
         return expr, tokens
     else
@@ -174,9 +180,37 @@ function parse_expr(tokens)
     return expr, tokens
 end
 
-# comparison = expr ((< | > | == | !=) expr)*
+# comparison = expr ((< | > | == | != | && | ||) expr)*
 
-function parse_comparision()
+function parse_comparison(tokens)
+    expr, tokens = parse_expr(tokens)
+    if tokens[1].token_type == :LT
+        tokens = tokens[2:end]
+        expr2, tokens = parse_comparison(tokens)
+        return Meta.Expr(:call, :<, expr, expr2), tokens
+    elseif tokens[1].token_type == :GT
+        tokens = tokens[2:end]
+        expr2, tokens = parse_comparison(tokens)
+        return Meta.Expr(:call, :>, expr, expr2), tokens
+    elseif tokens[1].token_type == :EQUALS
+        tokens = tokens[2:end]
+        expr2, tokens = parse_comparison(tokens)
+        return Meta.Expr(:call, :(==), expr, expr2), tokens
+    elseif tokens[1].token_type == :NEQUALS
+        tokens = tokens[2:end]
+        expr2, tokens = parse_comparison(tokens)
+        return Meta.Expr(:call, :(!=), expr, expr2), tokens
+    elseif tokens[1].token_type == :AND
+        tokens = tokens[2:end]
+        expr2, tokens = parse_comparison(tokens)
+        return Meta.Expr(:(&&), expr, expr2), tokens
+    elseif tokens[1].token_type == :OR
+        tokens = tokens[2:end]
+        expr2, tokens = parse_comparison(tokens)
+        return Meta.Expr(:(||), expr, expr2), tokens
+    else
+        return expr, tokens
+    end
 end
 
 function parse_statement(tokens)
@@ -185,17 +219,28 @@ function parse_statement(tokens)
     end
     @debug "Statement: ", tokens
     if tokens[1].token_type == :PRINT
-        expr, tokens = parse_expr(tokens[2:end])
+        expr, tokens = parse_comparison(tokens[2:end])
         print_expr = Meta.Expr(:call, print, expr, "\n")
         return print_expr, tokens
     elseif tokens[1].token_type == :LET
         tok, tokens = expect(:IDENTIFIER, tokens[2:end])
         identifier = Symbol(tok.match)
         _, tokens = expect(:EQUAL, tokens)
-        expr, tokens = parse_expr(tokens)
+        expr, tokens = parse_comparison(tokens)
         assignment_expr = Meta.Expr(:(=), identifier, expr)
         return assignment_expr, tokens
     elseif tokens[1].token_type == :IF
+        cond_expr, tokens = parse_comparison(tokens[2:end])
+        _, tokens = expect(:THEN, tokens)
+        then_expr, tokens = parse_statement(tokens)
+        if length(tokens) > 0 && tokens[1].token_type == :ELSE
+            else_expr, tokens = parse_statement(tokens[2:end])
+            total_expr = Meta.Expr(:if, cond_expr, then_expr, else_expr)
+            return total_expr, tokens
+        else
+            total_expr = Meta.Expr(:if, cond_expr, then_expr)
+            return total_expr, tokens
+        end
     elseif tokens[1].token_type == :GOTO
         tok, tokens = expect(:INT, tokens[2:end])
         line = parse(Int, tok.match)
