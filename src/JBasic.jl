@@ -1,0 +1,4 @@
+module JBasic
+
+
+end # module
