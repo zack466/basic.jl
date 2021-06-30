@@ -11,6 +11,7 @@ regexes = [
     (r"^<", :LT),
     (r"^>", :GT),
     (r"^\*", :TIMES),
+    (r"^\|", :INTDIVIDE),
     (r"^/", :DIVIDE),
     (r"^:", :COLON),
     (r"^==", :EQUALS),
@@ -26,10 +27,12 @@ regexes = [
     (r"^\n", :NEWLINE),
     (r"^\\(?![a-zA-Z])", :BACKSLASH),
     (r"^IF(?![a-zA-Z])", :IF),
+    (r"^WHILE(?![a-zA-Z])", :WHILE),
     (r"^NOP(?![a-zA-Z])", :NOP),
     (r"^THEN(?![a-zA-Z])", :THEN),
     (r"^ELSE(?![a-zA-Z])", :ELSE),
     (r"^PRINT(?![a-zA-Z])", :PRINT),
+    (r"^INPUT(?![a-zA-Z])", :INPUT),
     (r"^GOTO(?![a-zA-Z])", :GOTO),
     (r"^EXIT(?![a-zA-Z])", :EXIT),
     (r"^LET(?![a-zA-Z])", :LET),
@@ -188,6 +191,10 @@ function parse_expr(tokens)
         tokens = tokens[2:end]
         expr2, tokens = parse_expr(tokens)
         return Meta.Expr(:call, :/, expr, expr2), tokens
+    elseif tokens[1].token_type == :INTDIVIDE
+        tokens = tokens[2:end]
+        expr2, tokens = parse_expr(tokens)
+        return Meta.Expr(:call, :÷, expr, expr2), tokens
     elseif tokens[1].token_type == :CONCAT
         tokens = tokens[2:end]
         expr2, tokens = parse_expr(tokens)
@@ -238,6 +245,11 @@ function parse_statement(tokens)
         expr, tokens = parse_comparison(tokens[2:end])
         print_expr = Meta.Expr(:call, print, expr, "\n")
         return print_expr, tokens
+    elseif tokens[1].token_type == :INPUT
+        tok, tokens = expect(:IDENTIFIER, tokens[2:end])
+        identifier = Symbol(tok.match)
+        assignment_expr = Meta.Expr(:(=), identifier, :(readline()))
+        return assignment_expr, tokens
     elseif tokens[1].token_type == :LET
         tok, tokens = expect(:IDENTIFIER, tokens[2:end])
         identifier = Symbol(tok.match)
@@ -257,6 +269,12 @@ function parse_statement(tokens)
             total_expr = Meta.Expr(:if, cond_expr, then_expr)
             return total_expr, tokens
         end
+    elseif tokens[1].token_type == :WHILE
+        cond_expr, tokens = parse_comparison(tokens[2:end])
+        _, tokens = expect(:THEN, tokens)
+        then_expr, tokens = parse_statement(tokens)
+        total_expr = Meta.Expr(:while, cond_expr, then_expr)
+        return total_expr, tokens
     elseif tokens[1].token_type == :GOTO
         name, tokens = parse_linelabel(tokens[2:end], decl=false)
         expr = Meta.Expr(:call, :setIP, name)
