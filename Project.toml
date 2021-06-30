@@ -2,3 +2,6 @@ name = "JBasic"
 uuid = "e4a9bf31-747c-428e-a267-b9b090216151"
 authors = ["Zachary Huang <zack466@gmail.com>"]
 version = "0.1.0"
+
+[deps]
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"

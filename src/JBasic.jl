@@ -4,7 +4,12 @@ include("./parse.jl")
 
 IP = nothing
 function setIP(x)
-    global IP = x;
+    try
+        global IP = eval(Meta.Expr(:., BASIC, Meta.QuoteNode(Symbol(x))))
+    catch err
+        global IP = x;
+    end
+    @debug ("Setting IP to $IP")
 end
 
 # a clean namespace to evaluate Exprs in
@@ -31,6 +36,7 @@ function interpret(str)
             program_idx += 1
         else
             program_idx = mapping[IP]
+            @debug ("Jumping to $IP")
         end
     end
 end

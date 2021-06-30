@@ -1,10 +1,30 @@
-5 LET x = 9876543
-10 LET dx = 0.0001
-15 LET y = 1
-18 PRINT y
-20 IF ((y * y) - x < 0.0001) && ((y * y) - x > -0.0001) THEN GOTO 100 ELSE GOTO 30
-30 LET y = (y + (x / y)) / 2
-40 GOTO 18
-100 PRINT "" \ PRINT y
-101 PRINT "is approximately the square root of"
-102 PRINT x
+MAIN: NOP
+LET x = 11
+LET dx = 0.0001
+LET y = 1
+LET RET1 = -1 \ LET RET2 = -1 \ LET RET3 = -1 \ LET ARG1 = -1 \ LET ARG2 = -1 \ LET ARG3 = -1
+LET RETURN = -1
+
+START: NOP
+LET ARG1 = y \ LET ARG2 = x
+LET RETURN = "A" \ GOTO GOOD-ENOUGH
+A: IF RET1 THEN GOTO END
+LET RETURN = "B" \ GOTO IMPROVE-GUESS
+B: LET y = RET1 \ GOTO START
+
+// tests if ARG1 * ARG1 is approximately equal to ARG2
+// puts return value in RET1
+GOOD-ENOUGH: NOP
+IF ((ARG1 * ARG1) - ARG2 < dx) && ((ARG1 * ARG1) - ARG2 > -dx) THEN LET RET1 = #t ELSE LET RET1 = #f
+GOTO RETURN
+
+// improves the guess ARG1 given target ARG2 and puts the value in RET1
+IMPROVE-GUESS: NOP
+LET ARG1 = (ARG1 + (ARG2 / ARG1)) / 2
+LET RET1 = ARG1
+GOTO RETURN
+
+END: NOP
+PRINT "" \ PRINT y
+PRINT "is approximately the square root of"
+PRINT x

@@ -1,6 +1,7 @@
 using Logging
 
 regexes = [
+    (r"^//.*\n", :LINECOMMENT),
     (r"^\+\+", :CONCAT),
     (r"^&&", :AND),
     (r"^\|\|", :OR),
@@ -11,6 +12,7 @@ regexes = [
     (r"^>", :GT),
     (r"^\*", :TIMES),
     (r"^/", :DIVIDE),
+    (r"^:", :COLON),
     (r"^==", :EQUALS),
     (r"^!=", :NEQUALS),
     (r"^=", :EQUAL),
@@ -24,16 +26,18 @@ regexes = [
     (r"^\n", :NEWLINE),
     (r"^\\(?![a-zA-Z])", :BACKSLASH),
     (r"^IF(?![a-zA-Z])", :IF),
+    (r"^NOP(?![a-zA-Z])", :NOP),
     (r"^THEN(?![a-zA-Z])", :THEN),
     (r"^ELSE(?![a-zA-Z])", :ELSE),
     (r"^PRINT(?![a-zA-Z])", :PRINT),
     (r"^GOTO(?![a-zA-Z])", :GOTO),
     (r"^EXIT(?![a-zA-Z])", :EXIT),
     (r"^LET(?![a-zA-Z])", :LET),
-    (r"^([a-zA-Z]+)", :IDENTIFIER),
+    (r"^([a-zA-Z0-9\-]+)", :IDENTIFIER),
 ]
 
 const whitespace = r"^ +"
+const newlines = r"^\n+"
 
 struct Token
     token_type
@@ -63,6 +67,15 @@ function ignore_whitespace(str)
     end
 end
 
+function ignore_newlines(str)
+    m = match(newlines, str)
+    if (m == nothing)
+        return str;
+    else
+        return str[length(m.match) + 1:end]
+    end
+end
+
 function tokenize(str)
     curr = str
     tokens::Vector{Token} = []
@@ -71,10 +84,13 @@ function tokenize(str)
         if l == 0
             break
         end
-        push!(tokens, token)
+        if token.token_type != :LINECOMMENT
+            push!(tokens, token)
+        end
         curr = curr[l+1:end]
         curr = ignore_whitespace(curr)
     end
+    @debug tokens
     return tokens
 end
 
@@ -242,10 +258,11 @@ function parse_statement(tokens)
             return total_expr, tokens
         end
     elseif tokens[1].token_type == :GOTO
-        tok, tokens = expect(:INT, tokens[2:end])
-        line = parse(Int, tok.match)
-        expr = Meta.Expr(:call, :setIP, line)
+        name, tokens = parse_linelabel(tokens[2:end], decl=false)
+        expr = Meta.Expr(:call, :setIP, name)
         return expr, tokens
+    elseif tokens[1].token_type == :NOP
+        return :(), tokens[2:end]
     elseif tokens[1].token_type == :EXIT
         expr = Meta.Expr(:call, :setIP, -1)
         return expr, tokens[2:end]
@@ -254,30 +271,52 @@ end
 
 # line = line_label statement (BACKSLASH statement)* newline
 
+function parse_linelabel(tokens; decl=true)
+    if tokens[1].token_type == :INT
+        return parse(Int, tokens[1].match), tokens[2:end]
+    elseif tokens[1].token_type == :IDENTIFIER
+        name = String(tokens[1].match)
+        tokens = tokens[2:end]
+        if decl
+            _, tokens = expect(:COLON, tokens)
+        end
+        return name, tokens
+    else
+        if decl # line may not have label
+            return nothing, tokens
+        end
+        error("Improper line label $(tokens[1])")
+    end
+end
+
 function parse_line(tokens)
-    tok, tokens = expect(:INT, tokens)
-    line_number = parse(Int, tok.match)
+    while tokens[1].token_type == :NEWLINE
+        tokens = tokens[2:end]
+    end
+    line_label, tokens = parse_linelabel(tokens)
     total_expr, tokens = parse_statement(tokens)
     while tokens[1].token_type == :BACKSLASH
         expr, tokens = parse_statement(tokens[2:end])
         total_expr = Meta.Expr(:block, total_expr, expr)
     end
     _, tokens = expect(:NEWLINE, tokens)
-    return line_number, total_expr, tokens
+    return line_label, total_expr, tokens
 end
 
 function parse_program(tokens)
     curr = tokens;
-    program::Vector{Tuple{Union{Int, String}, Expr}} = [];
+    program::Vector{Tuple{Union{Int, String, Nothing}, Expr}} = [];
     mapping::Dict{Union{Int, String}, Int} = Dict(); # maps line number/label to index of expr
     entry = nothing;
     while length(curr) > 0
         line, expr, curr = parse_line(curr)
-        if entry == nothing
+        if line != nothing && entry == nothing
             entry = line
         end
         push!(program, (line, expr))
-        mapping[line] = length(program)
+        if line != nothing
+            mapping[line] = length(program)
+        end
     end
     mapping[-1] = length(program) + 1 # GOTO -1 to quit
     return entry, program, mapping
