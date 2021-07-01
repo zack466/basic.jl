@@ -1,3 +1,4 @@
+# a lexer + parser which generates julia expressions (AST nodes) to be evaluated
 using Logging
 
 regexes = [

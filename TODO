@@ -1,0 +1,13 @@
+- take advantage of julia type system and multiple dispatch
+- use macros to generate recursive descent parsers, or try to use parser combinators
+- look at other BASICs, such as GW-BASIC, FreeBASIC, Pure BASIC, Vintage BASIC, etc for reference
+- allow for modular grammar / different syntaxes, possible bc julia jit compiled
+ - the grammar can be written inside julia itself using macros/operators
+- lazy parsing, next() and peek() instead of eagerly gathering all tokens
+- use views, which may be more efficient than slicing arrays (which makes a copy)
+
+stages
+1 - walks the AST, generates julia ASTs to eval
+2 - creates an AST in julia using structs/types, evaluate methods dispatched on node type
+3 - use the AST to generate bytecode for a vm (stack machine)
+
