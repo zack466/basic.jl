@@ -1,4 +1,26 @@
-# a lexer + parser which generates julia expressions (AST nodes) to be evaluated
+# a lexer + parser which generates julia expressions (AST nodes) to be evaluated 
+# NOTE: this is not based on any actual BASIC specification, it's just a prototype of what a BASIC-like langauge might be
+#
+# Supports:
+#   Standard math operators (* - + /) along with integer division (|) and string concatenation (++)
+#   Comparing values (< > == !=)
+#   Single line comments (//)
+#   Integer, float, string (".."), and boolean (#t #f) literals
+#   Each line can have a line label, which is either an integer or a valid identifier followed by a colon
+#   The first labeled line in a program is chosen as the entry point for the interpreter
+#   Multiple statements on a single line can be separated by backslashes (\)
+#
+#   LET <identifier> = <expression>
+#   IF <expression> THEN <statement> [ELSE <statement>]
+#   WHILE <expression> THEN <statement>
+#   PRINT <expression>
+#   INPUT <identifier> will read an input line into the variable name
+#   NOP does nothing
+#   GOTO <line label>, can jump to a line number, a line label, or a variable containing either
+#   EXIT exits the program
+#
+# An example program can be found in `examples/sqrt.basic`
+module BASIC1
 using Logging
 
 regexes = [
@@ -322,6 +344,11 @@ function parse_line(tokens)
     return line_label, total_expr, tokens
 end
 
+# takes in a list of tokens and produces a program
+# Returns:
+#   entry - the line label which the interpreter will start evaluating first
+#   program - an array of julia expressions which can be evaluated using eval
+#   mapping - a dictionary which maps line labels to their corresponding expr in the program array
 function parse_program(tokens)
     curr = tokens;
     program::Vector{Tuple{Union{Int, String, Nothing}, Expr}} = [];
@@ -341,3 +368,70 @@ function parse_program(tokens)
     return entry, program, mapping
 end
 
+IP = nothing # an "instruction pointer" so that GOTOs can work
+function setIP(x)
+    try
+        global IP = eval(Meta.Expr(:., BASIC, Meta.QuoteNode(Symbol(x))))
+    catch err
+        global IP = x;
+    end
+    @debug ("Setting IP to $IP")
+end
+IP = nothing
+function setIP(x)
+    try
+        global IP = eval(Meta.Expr(:., BASIC, Meta.QuoteNode(Symbol(x))))
+    catch err
+        global IP = x;
+    end
+    @debug ("Setting IP to $IP")
+end
+
+# a clean namespace to evaluate Exprs in
+# (with the exception of setIP, but that's ok)
+module BASIC
+
+import ..BASIC: setIP
+basic_eval(e) = eval(e);
+
+end
+
+function interpret(str)
+    tokens = tokenize(str)
+    @debug tokens
+    entry, program, mapping = parse_program(tokens)
+    global IP = entry # initial instruction pointer
+    program_idx = mapping[IP]
+    while program_idx <= length(program)
+        IP = nothing;
+        line, expr = program[program_idx]
+        @debug "Line: ", line, expr
+        BASIC.basic_eval(expr)
+        if IP == nothing # not a GOTO
+            program_idx += 1
+        else
+            program_idx = mapping[IP]
+            @debug ("Jumping to $IP")
+        end
+    end
+end
+
+# utility for embedding this BASIC directly into julia files like this:
+# basic"""
+# 10 PRINT "Hello, world!"
+# """
+macro basic_str(program::String)
+    interpret(program)
+end
+
+# utility for reading a file and interpreting it
+function runfile(str)
+    open(str) do f
+        interpret(read(f, String))
+    end
+end
+
+export @basic_str
+export runfile
+
+end

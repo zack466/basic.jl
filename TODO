@@ -8,7 +8,7 @@
 - allow for graphical output, simulate using ncurses
 
 stages
-1 - parses the tokens recursively, generates julia ASTs which can be evaluated using `eval`
+1 - parses the tokens recursively, generates julia ASTs which can be evaluated using `eval` (done - basic1.jl)
 2 - creates an AST in julia using structs/types, evaluate methods dispatched on node type
 3 - use the AST to generate bytecode for a vm (stack machine)
 
