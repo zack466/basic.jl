@@ -1,6 +1,6 @@
 - take advantage of julia type system and multiple dispatch
 - use macros to generate recursive descent parsers, or try to use parser combinators
-- look at other BASICs, such as GW-BASIC, FreeBASIC, Pure BASIC, Vintage BASIC, etc for reference
+- look at other BASICs, such as GW-BASIC, FreeBASIC, Vintage BASIC, etc for reference
 - allow for modular grammar / different syntaxes, possible bc julia jit compiled
  - the grammar can be written inside julia itself using macros/operators
 - lazy parsing, next() and peek() instead of eagerly gathering all tokens

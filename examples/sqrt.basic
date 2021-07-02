@@ -1,3 +1,5 @@
+// An example program written for the basic1 interpreter found in `/src/basic1.jl`
+// Note: I did not know about the existence of GOSUB when writing basic1
 MAIN: NOP
 LET x = 1123
 LET dx = 0.0001
