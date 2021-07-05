@@ -42,6 +42,12 @@ keywords = [
     "PRINT",
     "GOTO",
     "END",
+    "NOT",
+    "AND",
+    "OR",
+]
+
+operators = [
     "(",
     ")",
     ",",
@@ -58,35 +64,43 @@ keywords = [
     ">=",
     "<",
     ">",
-    "NOT",
-    "AND",
-    "OR",
 ]
 
-# uppercase keywords only, does not require whitespace after keyword
-@syntax parseKeywordSpacelessUpper = map(!Either(keywords)) do kw
-    Token(Symbol(kw), nothing)
-end
-# case insensitive keywords, does not require whitespace after keyword
-@syntax parseKeywordSpacelessCaseless = map(
-    !mapreduce(caseless, |, keywords)
-) do kw
-    Token(Symbol(uppercase(kw)), nothing)
+# spaceless: does not require whitespace after word
+# caseless: keywords are space-insensitive
+function parseWords(words; spaceless=true, caseless=true)
+    if spaceless && caseless
+        p = map(
+            !mapreduce(caseless, |, words)
+        ) do kw
+            Token(Symbol(uppercase(kw)), nothing)
+        end
+    elseif spaceless && !caseless
+        p = map(!Either(words)) do kw
+            Token(Symbol(kw), nothing)
+        end
+    elseif !spaceless && caseless
+        p = map(
+            Sequence(!mapreduce(caseless, |, words), PositiveLookahead(re"\s"))
+        ) do kw
+            Token(Symbol(uppercase(kw[1])), nothing)
+        end
+    else
+        p = map(Sequence(!Either(words), PositiveLookahead(re"\s"))) do kw
+            Token(Symbol(kw[1]), nothing)
+        end
+    end
 end
 
-# uppercase keywords only, requires whitespace after keyword
-@syntax parseKeywordUpper = map(Sequence(!Either(keywords), PositiveLookahead(re"\s"))) do kw
-    Token(Symbol(kw[1]), nothing)
-end
-
-# case insensitive keywords, requires whitespace after keyword
-@syntax parseKeywordCaseless = map(
-    Sequence(!mapreduce(caseless, |, keywords), PositiveLookahead(re"\s"))
-) do kw
-    Token(Symbol(uppercase(kw[1])), nothing)
-end
-
-@syntax parseToken = map(Sequence(Optional(whitespace_newline), Either(parseNumber, parseString, parseKeywordSpacelessCaseless, parseIdentifier))) do r
+@syntax parseToken = map(Sequence(
+    Optional(Regexp.whitespace_horizontal),
+    Either(
+        parseNumber,
+        parseString,
+        parseWords(keywords, spaceless=false, caseless=false),
+        parseWords(operators, spaceless=true, caseless=false),
+        parseIdentifier
+    ))) do r
     r[2]
 end
 
