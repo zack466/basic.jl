@@ -1,3 +1,4 @@
+module Lexing
 # use parser combinators for clean and modular lexing
 
 using CombinedParsers
@@ -92,9 +93,14 @@ function parseWords(words; spaceless=true, caseless=true)
     end
 end
 
+@syntax parseNewline = map(whitespace_newline) do n
+    Token(:Newline, nothing)
+end
+
 @syntax parseToken = map(Sequence(
     Optional(Regexp.whitespace_horizontal),
     Either(
+        parseNewline,
         parseNumber,
         parseString,
         parseWords(keywords, spaceless=false, caseless=false),
@@ -131,4 +137,9 @@ function Base.iterate(lex::Lex, idx::Int64)
         tok, len = res
         return tok, len + idx - 1
     end
+end
+
+export Lex
+export iterate
+
 end
