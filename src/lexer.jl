@@ -1,4 +1,3 @@
-module Lexing
 # use parser combinators for clean and modular lexing
 
 using CombinedParsers
@@ -137,9 +136,4 @@ function Base.iterate(lex::Lex, idx::Int64)
         tok, len = res
         return tok, len + idx - 1
     end
-end
-
-export Lex
-export iterate
-
 end
