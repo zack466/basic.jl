@@ -10,10 +10,17 @@ struct LexOptions
     caseless_keywords::Bool
 end
 
-struct Token
+import TextParse: AbstractToken
+struct Token{T} <: AbstractToken{T}
     token_type::Symbol
     value::Any
+    function Token(ttype::Symbol, val::Any)
+        new{Nothing}(ttype, val)
+    end
 end
+
+import Base.show
+show(io::IO, tok::Token) = print(io, "Token[$(tok.token_type), $(tok.value)]")
 
 @syntax parseNumber = map(Numeric(Float64)) do num
     Token(:Number, num)
@@ -40,7 +47,8 @@ keywords = [
     "IF",
     "THEN",
     "PRINT",
-    "GOTO",
+    "GO",
+    "TO",
     "END",
     "NOT",
     "AND",

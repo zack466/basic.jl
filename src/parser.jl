@@ -2,6 +2,8 @@
 
 include("./lexer.jl")
 
+using CombinedParsers
+
 code = """
 10 INPUT"YES OR NO";A\$
 20 IF A\$ = "YES" THEN 50
@@ -21,8 +23,12 @@ Program = Linelabel + Statement + (":" Statement)* + "\n"
 
 Statement =
     | Assignment
+    | Jump
+    | "END"
 
 Assignment = "LET"? Identifier "=" Expression
+
+Jump = "GO" ("SUB" | "TO") Number
 
 # Expressions with precedence
 Expression = 
@@ -54,3 +60,5 @@ Function = Identifier Args? # covers function calls, array accesses, and variabl
 Args = "(" (Expression ",")* ")"
 
 =#
+
+
