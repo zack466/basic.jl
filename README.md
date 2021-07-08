@@ -13,3 +13,6 @@
 
 # Stage 3 (In Progress):
 - Instead of interpreting the AST, bytecode will be emitted for a more efficient representation of the BASIC code, to be interpreted by a VM
+
+## Inspiration
+- [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom
