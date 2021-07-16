@@ -16,6 +16,23 @@ for tok in Lex(code)
     println(tok)
 end
 
+import TextParse: tryparsenext
+
+function tryparsenext(tok::Token{T}, tokens::Vector{Token{T}}, i, len) where T
+    if length(tokens) == 0
+        return Nullable(), 1
+    elseif tokens[1].token_type == tok.token_type
+        println("here")
+        return Nullable(tokens[1]), 2
+    else
+        return Nullable(), 1
+    end
+end
+
+a = Token(:ASDF, 10)
+
+tryparse(a, [a])
+
 #=
 Grammar:
 
