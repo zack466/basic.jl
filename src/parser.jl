@@ -16,22 +16,26 @@ for tok in Lex(code)
     println(tok)
 end
 
-import TextParse: tryparsenext
+abstract type ASTNode end
 
-function tryparsenext(tok::Token{T}, tokens::Vector{Token{T}}, i, len) where T
-    if length(tokens) == 0
-        return Nullable(), 1
-    elseif tokens[1].token_type == tok.token_type
-        println("here")
-        return Nullable(tokens[1]), 2
-    else
-        return Nullable(), 1
-    end
+struct BinOp <: ASTNode
+    left::ASTNode
+    right::ASTNode
+    op::Function
 end
 
-a = Token(:ASDF, 10)
+struct Assignment
+    identifier
+    value
+end
 
-tryparse(a, [a])
+struct Jump
+    linelabel
+end
+
+struct Program
+    map::Dict{Int, ASTNode}
+end
 
 #=
 Grammar:
@@ -78,4 +82,7 @@ Args = "(" (Expression ",")* ")"
 
 =#
 
-
+function parse_program(tokens)::Program
+    map = Dict{Int, ASTNode}()
+    return Program(map)
+end
