@@ -10,13 +10,9 @@ struct LexOptions
     caseless_keywords::Bool
 end
 
-import TextParse: AbstractToken
-struct Token{T} <: AbstractToken{T}
+struct Token
     token_type::Symbol
     value::Any
-    function Token(ttype::Symbol, val::Any)
-        new{Nothing}(ttype, val)
-    end
 end
 
 import Base.show
