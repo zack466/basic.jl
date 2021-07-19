@@ -24,6 +24,11 @@ struct BinOp <: ASTNode
     op::Symbol
 end
 
+struct Op <: ASTNode
+    expr::ASTNode
+    op::Symbol
+end
+
 struct Assignment <: ASTNode
     identifier
     value
@@ -43,6 +48,10 @@ struct Print <: ASTNode
     expr
 end
 
+struct Literal <: ASTNode
+    value
+end
+
 #=
 Grammar:
 
@@ -56,22 +65,21 @@ Statement =
     | "PRINT" Expression
     | "END"
 
-Assignment = "LET"? Identifier "=" Expression
+Assignment = "LET"? Function "=" Expression # only valid if LHS is a variable
 
 Jump = "GO" ("SUB" | "TO") Number
 
 # Expressions with precedence
 Expression = 
     | "(" Expression ")"
-    | Function
     | Expr7
 
 # yeah, 7 function calls just to parse a literal is definitely inefficient,
 # but this method is simple, and inlining should help with performance
 
-Expr7 = Expr6 ("OR" Expr6)?
+Expr7 = Expr6 ("OR" Expr6)*
 
-Expr6 = Expr5 ("AND" Expr5)?
+Expr6 = Expr5 ("AND" Expr5)*
 
 Expr5 = "NOT"? Expr4
 
@@ -81,19 +89,19 @@ Expr3 = Expr2 (("+" | "-") Expr2)*
 
 Expr2 = Expr1 (("*" | "/" | "^") Expr1)*
 
-Expr1 = ("-" | "+")? Literal
+Expr1 = ("-" | "+")? Primary
+
+Primary = Function | Variable | Literal
+
+Function = "FN" Variable
 
 Literal = Number | String
 
-Function = Identifier Args? # covers function calls, array accesses, and variables
+Variable = Identifier Args? # covers builtin functions, array accesses, and variables
 
 Args = "(" (Expression ",")* ")"
 
 =#
-
-struct ErrorStatus
-    msg
-end
 
 mutable struct ParseState
     tokens::Vector{Token}
@@ -198,16 +206,102 @@ function parse_expr6(state)
 end
 
 function parse_expr5(state)
+    tok = peek(state)
+    if tok.token_type == :NOT
+        next(state)
+        expr = parse_expr4(state)
+        return Op(expr, :NOT)
+    else
+        expr = parse_expr4(state)
+        return expr
+    end
 end
 
 function parse_expr4(state)
+    expr = parse_expr3(state)
+    const symbols = map(Symbol, ["=", "<>", "<", "<=", ">", ">="])
+    while true
+        tok = peek(state)
+        if tok.token_type in symbols
+            next(state)
+            right = parse_expr3(state)
+            expr = BinOp(expr, right, tok.token_type)
+        else
+            break
+        end
+    end
+    return expr
 end
 
 function parse_expr3(state)
+    expr = parse_expr2(state)
+    const symbols = map(Symbol, ["+", "-"])
+    while true
+        tok = peek(state)
+        if tok.token_type in symbols
+            next(state)
+            right = parse_expr2(state)
+            expr = BinOp(expr, right, tok.token_type)
+        else
+            break
+        end
+    end
+    return expr
 end
 
 function parse_expr2(state)
+    expr = parse_expr1(state)
+    const symbols = map(Symbol, ["*", "/", "^"])
+    while true
+        tok = peek(state)
+        if tok.token_type in symbols
+            next(state)
+            right = parse_expr1(state)
+            expr = BinOp(expr, right, tok.token_type)
+        else
+            break
+        end
+    end
+    return expr
 end
 
 function parse_expr1(state)
+    tok = peek(state)
+    if tok.token_type == Symbol("-")
+        next(state)
+        expr = parse_primary(state)
+        return Op(expr, Symbol("-"))
+    elseif tok.token_type == Symbol("+")
+        next(state)
+        expr = parse_primary(state)
+        return Op(expr, Symbol("+"))
+    else
+        expr = parse_primary(state)
+        return expr
+    end
+end
+
+struct Variable <: ASTNode
+    identifier
+    args
+end
+
+function parse_primary(state)
+    tok = peek(State)
+    if tok.token_type == :FN # Function
+        next(state)
+        return parse_variable(state)
+    elseif tok.token_type == :IDENTIFIER # Variable
+        return parse_variable(state)
+    else
+        return parse_literal(state)
+    end
+end
+
+function parse_literal(state)
+    tok = next(state)
+    return Literal(tok.value)
+end
+
+function parse_variable(state)
 end
